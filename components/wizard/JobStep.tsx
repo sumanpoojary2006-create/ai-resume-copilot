@@ -35,6 +35,7 @@ export function JobStep() {
   const [mode, setMode] = useState<"manual" | "discover">("manual")
   const [analyzing, setAnalyzing] = useState(false)
   const [discovering, setDiscovering] = useState(false)
+  const [discoverError, setDiscoverError] = useState("")
   const [stageIdx, setStageIdx] = useState(0)
   const [progress, setProgress] = useState(0)
   const [discoveredJobs, setDiscoveredJobs] = useState<DiscoveredJob[]>([])
@@ -47,6 +48,7 @@ export function JobStep() {
 
   const handleDiscover = async () => {
     setDiscovering(true)
+    setDiscoverError("")
     setDiscoveredJobs([])
     setSearchSummary("")
     try {
@@ -56,10 +58,11 @@ export function JobStep() {
         body: JSON.stringify({ resumeText, profile: { ...profile, skills } })
       })
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Discovery failed")
       setDiscoveredJobs(data.jobs || [])
       setSearchSummary(data.searchSummary || "")
-    } catch {
-      setDiscoveredJobs([])
+    } catch (err) {
+      setDiscoverError(err instanceof Error ? err.message : "Job discovery failed")
     } finally {
       setDiscovering(false)
     }
@@ -210,16 +213,27 @@ export function JobStep() {
           {discovering && (
             <div className="flex flex-col items-center py-8 gap-3">
               <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
-              <p className="text-slate-400 text-sm">Searching the internet for best job matches...</p>
+              <p className="text-slate-400 text-sm">Finding best job matches for your profile...</p>
+              <p className="text-slate-600 text-xs">This takes 10–15 seconds</p>
             </div>
           )}
 
-          {!discovering && discoveredJobs.length === 0 && (
+          {discoverError && !discovering && (
+            <div className="p-3 bg-red-900/30 border border-red-700/40 rounded-xl text-red-300 text-sm">
+              {discoverError}
+              <button onClick={handleDiscover} className="block mt-2 text-xs text-red-400 underline hover:text-red-300">
+                Try again
+              </button>
+            </div>
+          )}
+
+          {!discovering && !discoverError && discoveredJobs.length === 0 && (
             <div className="text-center py-6">
               <button onClick={handleDiscover}
                 className="flex items-center gap-2 mx-auto px-5 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-medium transition-all">
                 <Search className="w-4 h-4" /> Search for Jobs
               </button>
+              <p className="text-slate-600 text-xs mt-2">AI will suggest best roles based on your resume</p>
             </div>
           )}
 
