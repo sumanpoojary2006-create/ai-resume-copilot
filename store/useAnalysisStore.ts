@@ -42,6 +42,7 @@ interface AnalysisStore {
   setActiveResultTab: (tab: string) => void
   addKeywordToResume: (keyword: string) => void
   removeKeywordFromResume: (keyword: string) => void
+  reanalyze: () => void
   reset: () => void
 }
 
@@ -100,6 +101,19 @@ export const useAnalysisStore = create<AnalysisStore>((set) => ({
       }
     }
   }),
+  // Re-analyze: keep profile + resume, just clear result and go back to job step
+  reanalyze: () => set((s) => ({
+    step: "job",
+    result: null,
+    error: null,
+    jobDescription: "",
+    activeResultTab: "overview",
+    // Keep: profile, skills, resumeText, resumeFile
+    profile: s.profile,
+    skills: s.skills,
+    resumeText: s.resumeText,
+    resumeFile: s.resumeFile,
+  })),
   reset: () => set({
     step: "signup", profile: defaultProfile, skills: [], selectedQuestions: [],
     customQuestion: "", resumeText: "", resumeFile: null, jobDescription: "",
