@@ -64,7 +64,7 @@ export function SignUpStep() {
         }
       }
       saveProfile({ ...profile })
-      setStep("questions")
+      setStep("resume")
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Authentication failed"
       if (msg.includes("already registered")) setAuthError("Email already registered. Sign in instead.")

@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { AnalysisResult } from "@/lib/types"
 
-export type WizardStep = "signup" | "questions" | "profile" | "resume" | "job" | "analyzing" | "results"
+export type WizardStep = "signup" | "resume" | "profile" | "job" | "analyzing" | "results"
 
 export interface UserProfile {
   name: string
@@ -11,11 +11,15 @@ export interface UserProfile {
   experience: string
   location: string
   linkedin: string
+  summary?: string
+  education?: string
+  keyAchievements?: string[]
 }
 
 interface AnalysisStore {
   step: WizardStep
   profile: UserProfile
+  skills: string[]
   selectedQuestions: string[]
   customQuestion: string
   resumeText: string
@@ -27,6 +31,7 @@ interface AnalysisStore {
 
   setStep: (step: WizardStep) => void
   setProfile: (profile: Partial<UserProfile>) => void
+  setSkills: (skills: string[]) => void
   setSelectedQuestions: (questions: string[]) => void
   setCustomQuestion: (question: string) => void
   setResumeText: (text: string) => void
@@ -39,18 +44,15 @@ interface AnalysisStore {
 }
 
 const defaultProfile: UserProfile = {
-  name: "",
-  email: "",
-  password: "",
-  currentRole: "",
-  experience: "",
-  location: "",
-  linkedin: "",
+  name: "", email: "", password: "", currentRole: "",
+  experience: "", location: "", linkedin: "", summary: "",
+  education: "", keyAchievements: [],
 }
 
 export const useAnalysisStore = create<AnalysisStore>((set) => ({
   step: "signup",
   profile: defaultProfile,
+  skills: [],
   selectedQuestions: [],
   customQuestion: "",
   resumeText: "",
@@ -62,6 +64,7 @@ export const useAnalysisStore = create<AnalysisStore>((set) => ({
 
   setStep: (step) => set({ step }),
   setProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
+  setSkills: (skills) => set({ skills }),
   setSelectedQuestions: (selectedQuestions) => set({ selectedQuestions }),
   setCustomQuestion: (customQuestion) => set({ customQuestion }),
   setResumeText: (resumeText) => set({ resumeText }),
@@ -71,15 +74,8 @@ export const useAnalysisStore = create<AnalysisStore>((set) => ({
   setError: (error) => set({ error, step: "job" }),
   setActiveResultTab: (activeResultTab) => set({ activeResultTab }),
   reset: () => set({
-    step: "signup",
-    profile: defaultProfile,
-    selectedQuestions: [],
-    customQuestion: "",
-    resumeText: "",
-    resumeFile: null,
-    jobDescription: "",
-    result: null,
-    error: null,
-    activeResultTab: "overview"
+    step: "signup", profile: defaultProfile, skills: [], selectedQuestions: [],
+    customQuestion: "", resumeText: "", resumeFile: null, jobDescription: "",
+    result: null, error: null, activeResultTab: "overview"
   }),
 }))
