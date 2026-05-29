@@ -57,6 +57,11 @@ ${text.slice(0, 8000)}`
     return NextResponse.json({ ...extracted, resumeText: text })
   } catch (err) {
     console.error("Extract error:", err)
-    return NextResponse.json({ error: "Extraction failed" }, { status: 500 })
+    const msg = err instanceof Error ? err.message : "Extraction failed"
+    // Quota / key errors — return friendly message
+    if (msg.includes("429") || msg.toLowerCase().includes("quota")) {
+      return NextResponse.json({ error: "Gemini API quota exceeded. Please wait and try again." }, { status: 500 })
+    }
+    return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 })
   }
 }

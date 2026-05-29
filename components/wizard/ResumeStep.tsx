@@ -34,7 +34,7 @@ export function ResumeStep() {
     try {
       const res = await fetch("/api/extract-profile", { method: "POST", body: formData })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Extraction failed")
+      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`)
 
       setProfile({
         name: data.name || "",
@@ -50,7 +50,8 @@ export function ResumeStep() {
       if (data.resumeText) setResumeText(data.resumeText)
       setExtracted(true)
     } catch (err) {
-      setExtractError(err instanceof Error ? err.message : "Could not extract profile")
+      const msg = err instanceof Error ? err.message : "Could not extract profile"
+      setExtractError(msg)
     } finally {
       setExtracting(false)
     }
