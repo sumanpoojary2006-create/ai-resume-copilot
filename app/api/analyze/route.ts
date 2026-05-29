@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     } else if (raw.includes("GEMINI_API_KEY not configured")) {
       friendly = "Gemini API key is not set. Add GEMINI_API_KEY=your_key to your .env.local file."
     } else if (raw.length > 300) {
-      friendly = "Analysis failed. Please try again in a moment."
+      friendly = `Analysis failed: ${raw.slice(0, 200)}...`
     }
 
     return NextResponse.json(
