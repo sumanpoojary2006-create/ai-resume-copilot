@@ -14,14 +14,14 @@ export async function POST(req: NextRequest) {
     let result
     try {
       const modelWithSearch = genAI.getGenerativeModel({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         // @ts-expect-error - google search tool
         tools: [{ googleSearch: {} }],
       })
       result = await modelWithSearch.generateContent(buildPrompt(profile, resumeText))
     } catch {
       // Fall back to plain model without search grounding
-      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" })
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
       result = await model.generateContent(buildPrompt(profile, resumeText))
     }
 
