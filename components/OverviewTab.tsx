@@ -1,11 +1,21 @@
 "use client"
 
+import { useState } from "react"
 import { AnalysisResult } from "@/lib/types"
 import { ScoreGauge } from "./ScoreGauge"
 import { ScoreBar } from "./ScoreBar"
-import { CheckCircle, XCircle, AlertTriangle, Tag, Sparkles } from "lucide-react"
+import { CheckCircle, XCircle, AlertTriangle, Tag, Sparkles, Plus, Check } from "lucide-react"
+import { useAnalysisStore } from "@/store/useAnalysisStore"
 
 export function OverviewTab({ result }: { result: AnalysisResult }) {
+  const { addKeywordToResume, setActiveResultTab } = useAnalysisStore()
+  const [addedKeys, setAddedKeys] = useState<string[]>([])
+
+  const handleAddKeyword = (keyword: string) => {
+    addKeywordToResume(keyword)
+    setAddedKeys(prev => [...prev, keyword])
+  }
+
   const {
     scores,
     strengths,
@@ -126,30 +136,97 @@ export function OverviewTab({ result }: { result: AnalysisResult }) {
 
       {/* Missing Skills & Keywords */}
       <div className="grid md:grid-cols-2 gap-4">
+        {/* Missing Skills */}
         <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
           <h3 className="font-semibold text-slate-300 text-sm uppercase tracking-wide mb-3">Missing Skills</h3>
           <div className="flex flex-wrap gap-2">
-            {missingSkills.map((s, i) => (
-              <span key={i} className="px-2.5 py-1 bg-red-900/30 text-red-300 rounded-lg text-xs border border-red-800/40">
-                {s}
-              </span>
-            ))}
+            {missingSkills.map((s, i) => {
+              const added = addedKeys.includes(s)
+              return (
+                <button
+                  key={i}
+                  onClick={() => !added && handleAddKeyword(s)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border transition-all ${
+                    added
+                      ? "bg-emerald-900/30 text-emerald-300 border-emerald-700/40 cursor-default"
+                      : "bg-red-900/30 text-red-300 border-red-800/40 hover:bg-red-800/40 hover:border-red-600/60"
+                  }`}
+                >
+                  {added ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                  {s}
+                </button>
+              )
+            })}
           </div>
+          {missingSkills.length > 0 && (
+            <p className="text-xs text-slate-600 mt-3">Click any skill to add it to your resume</p>
+          )}
         </div>
+
+        {/* Missing ATS Keywords */}
         <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
-          <div className="flex items-center gap-2 mb-3">
-            <Tag className="w-4 h-4 text-blue-400" />
-            <h3 className="font-semibold text-slate-300 text-sm uppercase tracking-wide">Missing ATS Keywords</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Tag className="w-4 h-4 text-blue-400" />
+              <h3 className="font-semibold text-slate-300 text-sm uppercase tracking-wide">Missing ATS Keywords</h3>
+            </div>
+            {addedKeys.length > 0 && (
+              <button
+                onClick={() => setActiveResultTab("resume")}
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+              >
+                <Check className="w-3 h-3" />
+                {addedKeys.length} added · View resume →
+              </button>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
-            {missingKeywords.map((k, i) => (
-              <span key={i} className="px-2.5 py-1 bg-blue-900/30 text-blue-300 rounded-lg text-xs border border-blue-800/40">
-                {k}
-              </span>
-            ))}
+            {missingKeywords.map((k, i) => {
+              const added = addedKeys.includes(k)
+              return (
+                <button
+                  key={i}
+                  onClick={() => !added && handleAddKeyword(k)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border transition-all ${
+                    added
+                      ? "bg-emerald-900/30 text-emerald-300 border-emerald-700/40 cursor-default"
+                      : "bg-blue-900/30 text-blue-300 border-blue-800/40 hover:bg-blue-800/40 hover:border-blue-600/60"
+                  }`}
+                >
+                  {added ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                  {k}
+                </button>
+              )
+            })}
           </div>
+          {missingKeywords.length > 0 && (
+            <p className="text-xs text-slate-600 mt-3">Click any keyword to inject it into your resume skills</p>
+          )}
         </div>
       </div>
+
+      {/* Added keywords summary banner */}
+      {addedKeys.length > 0 && (
+        <div className="flex items-center justify-between p-4 bg-emerald-950/30 border border-emerald-800/40 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-emerald-900/50 rounded-lg flex items-center justify-center">
+              <Check className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-emerald-300 font-semibold text-sm">
+                {addedKeys.length} keyword{addedKeys.length > 1 ? "s" : ""} added to your resume
+              </p>
+              <p className="text-slate-500 text-xs mt-0.5">{addedKeys.join(" · ")}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveResultTab("resume")}
+            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-all"
+          >
+            View Resume →
+          </button>
+        </div>
+      )}
     </div>
   )
 }

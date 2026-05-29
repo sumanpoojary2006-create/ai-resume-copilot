@@ -40,6 +40,8 @@ interface AnalysisStore {
   setResult: (result: AnalysisResult) => void
   setError: (error: string | null) => void
   setActiveResultTab: (tab: string) => void
+  addKeywordToResume: (keyword: string) => void
+  removeKeywordFromResume: (keyword: string) => void
   reset: () => void
 }
 
@@ -73,6 +75,31 @@ export const useAnalysisStore = create<AnalysisStore>((set) => ({
   setResult: (result) => set({ result, error: null, step: "results" }),
   setError: (error) => set({ error, step: "job" }),
   setActiveResultTab: (activeResultTab) => set({ activeResultTab }),
+  addKeywordToResume: (keyword) => set((s) => {
+    if (!s.result) return {}
+    const skills = s.result.optimizedResume.skills
+    if (skills.includes(keyword)) return {}
+    return {
+      result: {
+        ...s.result,
+        optimizedResume: { ...s.result.optimizedResume, skills: [...skills, keyword] },
+        missingKeywords: s.result.missingKeywords.filter(k => k !== keyword),
+      }
+    }
+  }),
+  removeKeywordFromResume: (keyword) => set((s) => {
+    if (!s.result) return {}
+    return {
+      result: {
+        ...s.result,
+        optimizedResume: {
+          ...s.result.optimizedResume,
+          skills: s.result.optimizedResume.skills.filter(k => k !== keyword),
+        },
+        missingKeywords: [...s.result.missingKeywords, keyword],
+      }
+    }
+  }),
   reset: () => set({
     step: "signup", profile: defaultProfile, skills: [], selectedQuestions: [],
     customQuestion: "", resumeText: "", resumeFile: null, jobDescription: "",

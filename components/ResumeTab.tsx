@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import { ResumeSection } from "@/lib/types"
-import { Copy, Check } from "lucide-react"
+import { Copy, Check, X } from "lucide-react"
 import dynamic from "next/dynamic"
+import { useAnalysisStore } from "@/store/useAnalysisStore"
 
 const DownloadPDFButton = dynamic(
   () => import("./DownloadPDFButton"),
@@ -12,6 +13,19 @@ const DownloadPDFButton = dynamic(
 
 export function ResumeTab({ resume }: { resume: ResumeSection }) {
   const [copied, setCopied] = useState(false)
+  const { result, removeKeywordFromResume } = useAnalysisStore()
+
+  // Track which skills were originally there vs user-added
+  // We compare against what Gemini originally generated (before user additions)
+  // A skill is "user added" if it appears in skills but was in missingKeywords
+  const originalMissingKeywords = result
+    ? [...(result.missingKeywords || []), ...resume.skills.filter(s =>
+        result.missingKeywords?.includes(s)
+      )]
+    : []
+  const userAddedSkills = resume.skills.filter(s =>
+    result?.optimizedResume?.skills?.includes(s) && originalMissingKeywords.includes(s)
+  )
 
   const resumeText = `${resume.name}
 ${resume.contact}
@@ -101,15 +115,34 @@ ${resume.projects.length ? `PROJECTS\n${resume.projects.map(p => `${p.name}: ${p
 
         {/* Skills */}
         <section className="mb-5">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-blue-700 border-b border-blue-200 pb-1 mb-2">
-            Skills
-          </h2>
-          <div className="flex flex-wrap gap-1.5">
-            {resume.skills.map((s, i) => (
-              <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs border border-blue-100">
-                {s}
+          <div className="flex items-center justify-between border-b border-blue-200 pb-1 mb-2">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-blue-700">Skills</h2>
+            {userAddedSkills.length > 0 && (
+              <span className="text-[10px] text-emerald-600 font-medium">
+                ✓ {userAddedSkills.length} ATS keyword{userAddedSkills.length > 1 ? "s" : ""} added
               </span>
-            ))}
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {resume.skills.map((s, i) => {
+              const isAdded = userAddedSkills.includes(s)
+              return isAdded ? (
+                <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-xs border border-emerald-200 font-medium">
+                  ✦ {s}
+                  <button
+                    onClick={() => removeKeywordFromResume(s)}
+                    className="text-emerald-400 hover:text-red-500 transition-colors ml-0.5"
+                    title="Remove from resume"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </span>
+              ) : (
+                <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs border border-blue-100">
+                  {s}
+                </span>
+              )
+            })}
           </div>
         </section>
 
