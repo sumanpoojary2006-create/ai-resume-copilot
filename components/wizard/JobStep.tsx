@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useAnalysisStore } from "@/store/useAnalysisStore"
 import { loadSkills } from "@/lib/profileStorage"
 import { supabase } from "@/lib/supabase"
@@ -13,28 +14,50 @@ const EXAMPLES = [
   "Frontend Developer at Figma",
 ]
 
+const STAGES = [
+  "Parsing your resume...",
+  "Extracting job requirements...",
+  "Matching skills & keywords...",
+  "Calculating ATS score...",
+  "Rewriting resume bullets...",
+  "Generating interview questions...",
+  "Building your growth plan...",
+]
+
 export function JobStep() {
   const {
-    jobDescription,
-    setJobDescription,
-    setStep,
-    setResult,
-    setError,
-    resumeText,
-    resumeFile,
-    profile,
-    selectedQuestions,
-    customQuestion,
-    error,
+    jobDescription, setJobDescription, setStep,
+    setResult, setError, resumeText, resumeFile,
+    profile, selectedQuestions, customQuestion, error,
   } = useAnalysisStore()
+
+  const [analyzing, setAnalyzing] = useState(false)
+  const [stageIdx, setStageIdx] = useState(0)
+  const [progress, setProgress] = useState(0)
 
   const MIN_CHARS = 20
   const charCount = jobDescription.trim().length
   const canSubmit = charCount >= MIN_CHARS
 
   const handleAnalyze = async () => {
-    setStep("analyzing")
+    setAnalyzing(true)
     setError(null)
+    setStageIdx(0)
+    setProgress(0)
+
+    // Progress animation
+    let p = 0
+    const progressInterval = setInterval(() => {
+      p = Math.min(p + 1.2, 90)
+      setProgress(p)
+    }, 300)
+
+    // Stage cycling
+    let s = 0
+    const stageInterval = setInterval(() => {
+      s = Math.min(s + 1, STAGES.length - 1)
+      setStageIdx(s)
+    }, 3500)
 
     const formData = new FormData()
     if (resumeFile) {
@@ -43,7 +66,6 @@ export function JobStep() {
     } else {
       formData.append("resumeText", resumeText)
     }
-
     const skills = loadSkills()
     formData.append("name", profile.name)
     formData.append("currentRole", profile.currentRole)
@@ -60,6 +82,11 @@ export function JobStep() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Analysis failed")
 
+      clearInterval(progressInterval)
+      clearInterval(stageInterval)
+      setProgress(100)
+      setStageIdx(STAGES.length - 1)
+
       // Save to Supabase if logged in
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
@@ -74,10 +101,67 @@ export function JobStep() {
         })
       }
 
+      await new Promise(r => setTimeout(r, 600)) // brief pause at 100%
       setResult(data)
     } catch (err) {
+      clearInterval(progressInterval)
+      clearInterval(stageInterval)
+      setAnalyzing(false)
       setError(err instanceof Error ? err.message : "Something went wrong")
     }
+  }
+
+  // Full-screen loading overlay
+  if (analyzing) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 gap-8">
+        {/* Animated orb */}
+        <div className="relative">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-2xl shadow-blue-500/40">
+            <div className="w-14 h-14 rounded-full bg-slate-950/70 flex items-center justify-center">
+              <Zap className="w-6 h-6 text-blue-400 animate-pulse" />
+            </div>
+          </div>
+          <div className="absolute inset-0 rounded-full border-4 border-blue-500/20 animate-ping" />
+        </div>
+
+        <div className="text-center space-y-1">
+          <h3 className="text-lg font-bold text-white">Gemini AI is analyzing</h3>
+          <p className="text-slate-400 text-sm">This takes about 15–30 seconds</p>
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-full max-w-sm space-y-2">
+          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-violet-500 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-slate-600">
+            <span>{STAGES[stageIdx]}</span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+        </div>
+
+        {/* Stage checklist */}
+        <div className="w-full max-w-sm space-y-2">
+          {STAGES.map((stage, i) => (
+            <div key={i} className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-300",
+              i < stageIdx ? "text-slate-500 opacity-50" :
+              i === stageIdx ? "bg-blue-950/40 border border-blue-800/40 text-blue-300" :
+              "text-slate-700"
+            )}>
+              <span className="text-base shrink-0">
+                {i < stageIdx ? "✓" : i === stageIdx ? "⟳" : "○"}
+              </span>
+              {stage}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -89,7 +173,6 @@ export function JobStep() {
         </p>
       </div>
 
-      {/* Example pills */}
       <div className="flex flex-wrap gap-2 justify-center">
         {EXAMPLES.map((e) => (
           <span key={e} className="flex items-center gap-1 px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-xs text-slate-400">
@@ -103,7 +186,6 @@ export function JobStep() {
         value={jobDescription}
         onChange={(e) => {
           setJobDescription(e.target.value)
-          // Auto-grow
           e.target.style.height = "auto"
           e.target.style.height = Math.min(e.target.scrollHeight, 480) + "px"
         }}
@@ -113,12 +195,9 @@ export function JobStep() {
         className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/60 resize-none transition-all leading-relaxed overflow-y-auto"
       />
 
-      {/* Character counter */}
       <div className="flex justify-between items-center -mt-4">
         <span className="text-xs text-slate-600">
-          {charCount < MIN_CHARS
-            ? `${MIN_CHARS - charCount} more characters needed`
-            : "✓ Ready to analyze"}
+          {charCount < MIN_CHARS ? `${MIN_CHARS - charCount} more characters needed` : "✓ Ready to analyze"}
         </span>
         <span className={cn("text-xs", charCount >= MIN_CHARS ? "text-emerald-500" : "text-slate-600")}>
           {charCount} chars
