@@ -6,7 +6,7 @@ export type WizardStep = "signup" | "resume" | "profile" | "job" | "analyzing" |
 export interface UserProfile {
   name: string
   email: string
-  password?: string
+  phone: string
   currentRole: string
   experience: string
   location: string
@@ -47,7 +47,7 @@ interface AnalysisStore {
 }
 
 const defaultProfile: UserProfile = {
-  name: "", email: "", password: "", currentRole: "",
+  name: "", email: "", phone: "", currentRole: "",
   experience: "", location: "", linkedin: "", summary: "",
   education: "", keyAchievements: [],
 }

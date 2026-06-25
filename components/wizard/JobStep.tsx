@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useAnalysisStore } from "@/store/useAnalysisStore"
+import { loadSession } from "@/lib/session"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, Zap, Sparkles, Search, FileText, ExternalLink, Loader2, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -106,10 +107,10 @@ export function JobStep() {
       clearInterval(progressInterval); clearInterval(stageInterval)
       setProgress(100); setStageIdx(STAGES.length - 1)
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
+      const userId = loadSession()
+      if (userId) {
         await supabase.from("analyses").insert({
-          user_id: user.id,
+          user_id: userId,
           job_title: data.jobProfile?.jobTitle || jobDescription.slice(0, 80),
           company: data.jobProfile?.company || (selectedJob?.company || ""),
           final_score: data.scores?.finalScore || 0,

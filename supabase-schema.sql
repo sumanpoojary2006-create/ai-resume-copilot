@@ -1,12 +1,13 @@
 -- ============================================
 -- ResumePilot Database Schema
--- Run this in Supabase SQL Editor
+-- Run this in the SQL Editor of your NEW Supabase project
 -- ============================================
 
 create table if not exists public.profiles (
-  id uuid references auth.users(id) on delete cascade primary key,
-  email text not null,
+  id uuid primary key default gen_random_uuid(),
+  email text not null default '',
   name text not null default '',
+  phone text not null unique,
   role text not null default '',
   experience text not null default '',
   location text not null default '',
@@ -18,7 +19,7 @@ create table if not exists public.profiles (
 
 create table if not exists public.analyses (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
   job_title text not null default '',
   company text not null default '',
   final_score integer not null default 0,
@@ -31,20 +32,23 @@ create table if not exists public.analyses (
 alter table public.profiles enable row level security;
 alter table public.analyses enable row level security;
 
-create policy "Users can view own profile" on public.profiles
-  for select using (auth.uid() = id);
+-- NOTE: there is no Supabase Auth session in this app (sign-in is a plain
+-- phone-number lookup), so there is no auth.uid() to scope rows by.
+-- These policies allow the anon key full access to both tables.
+create policy "Anyone can view profiles" on public.profiles
+  for select using (true);
 
-create policy "Users can insert own profile" on public.profiles
-  for insert with check (auth.uid() = id);
+create policy "Anyone can insert profiles" on public.profiles
+  for insert with check (true);
 
-create policy "Users can update own profile" on public.profiles
-  for update using (auth.uid() = id);
+create policy "Anyone can update profiles" on public.profiles
+  for update using (true);
 
-create policy "Users can view own analyses" on public.analyses
-  for select using (auth.uid() = user_id);
+create policy "Anyone can view analyses" on public.analyses
+  for select using (true);
 
-create policy "Users can insert own analyses" on public.analyses
-  for insert with check (auth.uid() = user_id);
+create policy "Anyone can insert analyses" on public.analyses
+  for insert with check (true);
 
 create or replace function public.handle_updated_at()
 returns trigger as $$

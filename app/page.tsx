@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useAnalysisStore } from "@/store/useAnalysisStore"
 import { loadProfile, clearProfile, loadSkills } from "@/lib/profileStorage"
+import { loadSession, clearSession } from "@/lib/session"
 import { supabase } from "@/lib/supabase"
 import StepProgress from "@/components/wizard/StepProgress"
 import { SignUpStep } from "@/components/wizard/SignUpStep"
@@ -19,13 +20,12 @@ export default function Home() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+      const userId = loadSession()
+      if (userId) {
+        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
         if (profileData) {
-          setProfile({ name: profileData.name, email: profileData.email, currentRole: profileData.role, experience: profileData.experience, location: profileData.location, linkedin: profileData.linkedin })
+          setProfile({ name: profileData.name, email: profileData.email, phone: profileData.phone, currentRole: profileData.role, experience: profileData.experience, location: profileData.location, linkedin: profileData.linkedin })
           if (profileData.skills?.length) setSkills(profileData.skills)
-          if (profileData.role) { setStep("resume"); setHydrated(true); return }
           setStep("resume")
           setHydrated(true)
           return
@@ -44,7 +44,7 @@ export default function Home() {
   }, [])
 
   const handleReset = async () => {
-    await supabase.auth.signOut()
+    clearSession()
     clearProfile()
     reset()
   }

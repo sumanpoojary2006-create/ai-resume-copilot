@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useAnalysisStore } from "@/store/useAnalysisStore"
 import { saveProfile, saveSkills } from "@/lib/profileStorage"
+import { loadSession } from "@/lib/session"
 import { supabase } from "@/lib/supabase"
 import { ArrowRight, ArrowLeft, MapPin, Link2, Plus, X, Briefcase, Clock, User, Mail, Sparkles, Edit3 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -53,13 +54,13 @@ export function ProfileStep() {
     saveProfile({ ...profile })
     saveSkills(skills)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      await supabase.from("profiles").upsert({
-        id: user.id, email: profile.email, name: profile.name,
+    const userId = loadSession()
+    if (userId) {
+      await supabase.from("profiles").update({
+        email: profile.email, name: profile.name, phone: profile.phone,
         role: profile.currentRole, experience: profile.experience,
         location: profile.location, linkedin: profile.linkedin, skills,
-      })
+      }).eq("id", userId)
     }
     setSaving(false)
     setStep("job")

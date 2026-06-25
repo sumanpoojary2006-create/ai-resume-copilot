@@ -3,14 +3,16 @@
 import { useState } from "react"
 import { useAnalysisStore } from "@/store/useAnalysisStore"
 import { saveProfile } from "@/lib/profileStorage"
+import { saveSession } from "@/lib/session"
 import { supabase } from "@/lib/supabase"
-import { ArrowRight, User, Mail, Lock, Shield, CheckCircle2, Loader2 } from "lucide-react"
+import { ArrowRight, User, Mail, Phone, Shield, CheckCircle2, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+const PHONE_REGEX = /^\+?[0-9]{7,15}$/
+
 export function SignUpStep() {
-  const { profile, setProfile, setStep } = useAnalysisStore()
+  const { profile, setProfile, setSkills, setStep } = useAnalysisStore()
   const [isSignUp, setIsSignUp] = useState(true)
-  const [password, setPassword] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [authError, setAuthError] = useState("")
@@ -18,8 +20,8 @@ export function SignUpStep() {
   const validate = () => {
     const e: Record<string, string> = {}
     if (isSignUp && !profile.name.trim()) e.name = "Full name is required"
-    if (!profile.email.trim() || !/\S+@\S+\.\S+/.test(profile.email)) e.email = "Valid email required"
-    if (!password || password.length < 6) e.password = "Password must be at least 6 characters"
+    if (isSignUp && (!profile.email.trim() || !/\S+@\S+\.\S+/.test(profile.email))) e.email = "Valid email required"
+    if (!profile.phone.trim() || !PHONE_REGEX.test(profile.phone.trim())) e.phone = "Valid phone number required"
     return e
   }
 
@@ -29,47 +31,39 @@ export function SignUpStep() {
     if (Object.keys(eList).length) { setErrors(eList); return }
     setLoading(true)
     setAuthError("")
+    const phone = profile.phone.trim()
 
     try {
+      const { data: existing } = await supabase.from("profiles").select("*").eq("phone", phone).maybeSingle()
+
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
+        if (existing) { setAuthError("Phone number already registered. Sign in instead."); setLoading(false); return }
+        const { data: created, error } = await supabase.from("profiles").insert({
           email: profile.email,
-          password,
-          options: { data: { name: profile.name } },
-        })
+          name: profile.name,
+          phone,
+          role: "",
+          experience: "",
+          location: "",
+          linkedin: "",
+          skills: [],
+        }).select("*").single()
         if (error) throw error
-        if (data.user) {
-          await supabase.from("profiles").upsert({
-            id: data.user.id,
-            email: profile.email,
-            name: profile.name,
-            role: "",
-            experience: "",
-            location: "",
-            linkedin: "",
-            skills: [],
-          })
-        }
+        if (created) saveSession(created.id)
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email: profile.email, password })
-        if (error) throw error
-        if (data.user) {
-          const { data: profileData } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
-          if (profileData) {
-            const p = { name: profileData.name, email: profileData.email, currentRole: profileData.role, experience: profileData.experience, location: profileData.location, linkedin: profileData.linkedin }
-            setProfile(p)
-            saveProfile(p)
-            if (profileData.role) { setStep("resume"); return }
-          }
-        }
+        if (!existing) { setAuthError("No account found with that phone number. Sign up instead."); setLoading(false); return }
+        saveSession(existing.id)
+        const p = { name: existing.name, email: existing.email, phone: existing.phone, currentRole: existing.role, experience: existing.experience, location: existing.location, linkedin: existing.linkedin }
+        setProfile(p)
+        if (existing.skills?.length) setSkills(existing.skills)
+        saveProfile({ ...profile, ...p })
+        if (existing.role) { setStep("resume"); return }
       }
-      saveProfile({ ...profile })
+      saveProfile({ ...profile, phone })
       setStep("resume")
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Authentication failed"
-      if (msg.includes("already registered")) setAuthError("Email already registered. Sign in instead.")
-      else if (msg.includes("Invalid login")) setAuthError("Incorrect email or password.")
-      else setAuthError(msg)
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setAuthError(msg)
     } finally {
       setLoading(false)
     }
@@ -85,7 +79,7 @@ export function SignUpStep() {
           {isSignUp ? "Create your account" : "Welcome back"}
         </h2>
         <p className="text-slate-400 text-sm max-w-sm mx-auto">
-          {isSignUp ? "Get hyper-personalized resume analysis tailored to your career goals" : "Sign in to access your saved profile and analysis history"}
+          {isSignUp ? "Get hyper-personalized resume analysis tailored to your career goals" : "Enter your phone number to access your saved profile"}
         </p>
       </div>
 
@@ -95,41 +89,43 @@ export function SignUpStep() {
 
       <form onSubmit={handleSubmit} className="space-y-4 max-w-md mx-auto">
         {isSignUp && (
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-slate-400" /> Full Name
-            </label>
-            <input type="text" value={profile.name}
-              onChange={(e) => { setProfile({ name: e.target.value }); setErrors(p => ({ ...p, name: "" })) }}
-              placeholder="e.g. John Doe"
-              className={cn("w-full bg-slate-950 border rounded-xl px-4 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 transition-all",
-                errors.name ? "border-red-500/60 focus:ring-red-500/30" : "border-slate-800 focus:ring-blue-500/30 focus:border-blue-500/60")} />
-            {errors.name && <p className="text-xs text-red-400">{errors.name}</p>}
-          </div>
+          <>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-slate-400" /> Full Name
+              </label>
+              <input type="text" value={profile.name}
+                onChange={(e) => { setProfile({ name: e.target.value }); setErrors(p => ({ ...p, name: "" })) }}
+                placeholder="e.g. John Doe"
+                className={cn("w-full bg-slate-950 border rounded-xl px-4 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 transition-all",
+                  errors.name ? "border-red-500/60 focus:ring-red-500/30" : "border-slate-800 focus:ring-blue-500/30 focus:border-blue-500/60")} />
+              {errors.name && <p className="text-xs text-red-400">{errors.name}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-slate-400" /> Email Address
+              </label>
+              <input type="email" value={profile.email}
+                onChange={(e) => { setProfile({ email: e.target.value }); setErrors(p => ({ ...p, email: "" })) }}
+                placeholder="john@example.com"
+                className={cn("w-full bg-slate-950 border rounded-xl px-4 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 transition-all",
+                  errors.email ? "border-red-500/60 focus:ring-red-500/30" : "border-slate-800 focus:ring-blue-500/30 focus:border-blue-500/60")} />
+              {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
+            </div>
+          </>
         )}
 
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-            <Mail className="w-3.5 h-3.5 text-slate-400" /> Email Address
+            <Phone className="w-3.5 h-3.5 text-slate-400" /> Phone Number
           </label>
-          <input type="email" value={profile.email}
-            onChange={(e) => { setProfile({ email: e.target.value }); setErrors(p => ({ ...p, email: "" })) }}
-            placeholder="john@example.com"
+          <input type="tel" value={profile.phone}
+            onChange={(e) => { setProfile({ phone: e.target.value }); setErrors(p => ({ ...p, phone: "" })) }}
+            placeholder="+1 555 123 4567"
             className={cn("w-full bg-slate-950 border rounded-xl px-4 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 transition-all",
-              errors.email ? "border-red-500/60 focus:ring-red-500/30" : "border-slate-800 focus:ring-blue-500/30 focus:border-blue-500/60")} />
-          {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-            <Lock className="w-3.5 h-3.5 text-slate-400" /> Password
-          </label>
-          <input type="password" value={password}
-            onChange={(e) => { setPassword(e.target.value); setErrors(p => ({ ...p, password: "" })) }}
-            placeholder="••••••••"
-            className={cn("w-full bg-slate-950 border rounded-xl px-4 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 transition-all",
-              errors.password ? "border-red-500/60 focus:ring-red-500/30" : "border-slate-800 focus:ring-blue-500/30 focus:border-blue-500/60")} />
-          {errors.password && <p className="text-xs text-red-400">{errors.password}</p>}
+              errors.phone ? "border-red-500/60 focus:ring-red-500/30" : "border-slate-800 focus:ring-blue-500/30 focus:border-blue-500/60")} />
+          {errors.phone && <p className="text-xs text-red-400">{errors.phone}</p>}
         </div>
 
         <button type="submit" disabled={loading}
@@ -150,8 +146,8 @@ export function SignUpStep() {
         <div className="flex items-start gap-2">
           <Shield className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
           <div>
-            <p className="text-xs font-semibold text-slate-200">Supabase Auth</p>
-            <p className="text-[10px] text-slate-500">Secure, encrypted authentication</p>
+            <p className="text-xs font-semibold text-slate-200">No Password Needed</p>
+            <p className="text-[10px] text-slate-500">Sign in anytime with your phone number</p>
           </div>
         </div>
         <div className="flex items-start gap-2">
