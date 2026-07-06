@@ -58,9 +58,13 @@ ${text.slice(0, 8000)}`
   } catch (err) {
     console.error("Extract error:", err)
     const msg = err instanceof Error ? err.message : "Extraction failed"
-    // Quota / key errors — return friendly message
-    if (msg.includes("429") || msg.toLowerCase().includes("quota")) {
-      return NextResponse.json({ error: "Gemini API quota exceeded. Please wait and try again." }, { status: 500 })
+    const low = msg.toLowerCase()
+    // Billing / quota / key errors — return friendly message
+    if (low.includes("credit") || low.includes("billing") || low.includes("prepay")) {
+      return NextResponse.json({ error: "Gemini billing issue: this API key's prepaid credits are depleted. Top up billing or switch to a new key from aistudio.google.com/apikey." }, { status: 500 })
+    }
+    if (msg.includes("429") || low.includes("quota") || low.includes("resource_exhausted")) {
+      return NextResponse.json({ error: "Gemini rate limit reached. Please wait a minute and try again." }, { status: 500 })
     }
     return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 })
   }
