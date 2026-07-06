@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { analyzeResume } from "@/lib/gemini"
+import { analyzeResume } from "@/lib/llm"
+import { friendlyLlmError } from "@/lib/groq"
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require("pdf-parse")
 
@@ -58,24 +59,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result)
   } catch (err) {
     console.error("Analysis error:", err)
-    const raw = err instanceof Error ? err.message : "Analysis failed"
-    let friendly = raw
-
-    const low = raw.toLowerCase()
-    if (low.includes("credit") || low.includes("billing") || low.includes("prepay")) {
-      friendly = "Gemini billing issue: this API key's prepaid credits are depleted. Waiting won't help — top up billing at ai.studio/projects, or switch to a new free-tier key from aistudio.google.com/apikey."
-    } else if (raw.includes("429") || low.includes("quota") || low.includes("too many requests") || low.includes("resource_exhausted")) {
-      friendly = "Gemini rate limit reached. Please wait a minute and try again, or use a different API key from aistudio.google.com/apikey."
-    } else if (raw.includes("API_KEY") || raw.includes("api key") || raw.toLowerCase().includes("invalid key")) {
-      friendly = "Invalid Gemini API key. Please check your .env.local file and make sure the key starts with 'AIza'."
-    } else if (raw.includes("GEMINI_API_KEY not configured")) {
-      friendly = "Gemini API key is not set. Add GEMINI_API_KEY=your_key to your .env.local file."
-    } else if (raw.length > 300) {
-      friendly = `Analysis failed: ${raw.slice(0, 200)}...`
-    }
-
     return NextResponse.json(
-      { error: friendly },
+      { error: friendlyLlmError(err) },
       { status: 500 }
     )
   }

@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { generateJSON } from "./groq"
 import { AnalysisResult } from "./types"
 
 const SYSTEM_PROMPT = `You are an expert AI Career Optimization Engine. Analyze the candidate resume and job description provided, then return a comprehensive analysis as valid JSON.
@@ -114,20 +114,12 @@ export async function analyzeResume(
   selectedQuestions: string[],
   customQuestion: string
 ): Promise<AnalysisResult> {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) throw new Error("GEMINI_API_KEY not configured")
-
-  const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
-
   const onboardingQuestionsPrompt = [
     ...selectedQuestions,
     ...(customQuestion ? [customQuestion] : [])
   ]
 
-  const prompt = `${SYSTEM_PROMPT}
-
----CANDIDATE INFORMATION---
+  const prompt = `---CANDIDATE INFORMATION---
 Name: ${profileContext.name}
 Current Role/Target Role: ${profileContext.currentRole}
 Experience Level: ${profileContext.experience}
@@ -148,9 +140,7 @@ ${onboardingQuestionsPrompt.map((q, idx) => `Question ${idx + 1}: ${q}`).join("\
 
 You MUST populate the "customQuestionsAnswers" array with an entry for each of these questions.`
 
-  const result = await model.generateContent(prompt)
-  const text = result.response.text()
-
+  const text = await generateJSON(prompt, { system: SYSTEM_PROMPT, maxTokens: 8000 })
   const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim()
 
   try {
@@ -158,6 +148,6 @@ You MUST populate the "customQuestionsAnswers" array with an entry for each of t
   } catch {
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
     if (jsonMatch) return JSON.parse(jsonMatch[0]) as AnalysisResult
-    throw new Error("Failed to parse Gemini response as JSON")
+    throw new Error("Failed to parse LLM response as JSON")
   }
 }
