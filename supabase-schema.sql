@@ -13,9 +13,21 @@ create table if not exists public.profiles (
   location text not null default '',
   linkedin text not null default '',
   skills text[] not null default '{}',
+  -- Full resume + extracted details so a returning user is fully restored on login
+  resume_text text not null default '',
+  summary text not null default '',
+  education text not null default '',
+  key_achievements text[] not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Idempotent migration: safe to re-run on an existing profiles table that
+-- pre-dates the resume/details columns.
+alter table public.profiles add column if not exists resume_text text not null default '';
+alter table public.profiles add column if not exists summary text not null default '';
+alter table public.profiles add column if not exists education text not null default '';
+alter table public.profiles add column if not exists key_achievements text[] not null default '{}';
 
 create table if not exists public.analyses (
   id uuid primary key default gen_random_uuid(),

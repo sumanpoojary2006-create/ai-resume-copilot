@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAnalysisStore } from "@/store/useAnalysisStore"
-import { saveProfile, saveSkills } from "@/lib/profileStorage"
+import { saveProfile, saveSkills, saveResumeText } from "@/lib/profileStorage"
 import { loadSession } from "@/lib/session"
 import { supabase } from "@/lib/supabase"
 import { ArrowRight, ArrowLeft, MapPin, Link2, Plus, X, Briefcase, Clock, User, Mail, Sparkles, Edit3 } from "lucide-react"
@@ -20,7 +20,7 @@ const SKILL_SUGGESTIONS = [
 ]
 
 export function ProfileStep() {
-  const { profile, setProfile, skills: storeSkills, setSkills, setStep } = useAnalysisStore()
+  const { profile, setProfile, skills: storeSkills, setSkills, setStep, resumeText } = useAnalysisStore()
   const [skills, setLocalSkills] = useState<string[]>(storeSkills || [])
   const [skillInput, setSkillInput] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -53,14 +53,24 @@ export function ProfileStep() {
     setSkills(skills)
     saveProfile({ ...profile })
     saveSkills(skills)
+    saveResumeText(resumeText)
 
     const userId = loadSession()
     if (userId) {
-      await supabase.from("profiles").update({
-        email: profile.email, name: profile.name, phone: profile.phone,
-        role: profile.currentRole, experience: profile.experience,
-        location: profile.location, linkedin: profile.linkedin, skills,
-      }).eq("id", userId)
+      try {
+        await supabase.from("profiles").update({
+          email: profile.email, name: profile.name, phone: profile.phone,
+          role: profile.currentRole, experience: profile.experience,
+          location: profile.location, linkedin: profile.linkedin, skills,
+          resume_text: resumeText,
+          summary: profile.summary ?? "",
+          education: profile.education ?? "",
+          key_achievements: profile.keyAchievements ?? [],
+        }).eq("id", userId)
+      } catch {
+        // Best-effort cloud sync — local storage above is the reliable copy,
+        // so a Supabase failure must never block the user's flow.
+      }
     }
     setSaving(false)
     setStep("job")

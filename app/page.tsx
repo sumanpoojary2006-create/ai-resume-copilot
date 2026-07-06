@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useAnalysisStore } from "@/store/useAnalysisStore"
-import { loadProfile, clearProfile, loadSkills } from "@/lib/profileStorage"
+import { loadProfile, clearProfile, loadSkills, loadResumeText, saveResumeText } from "@/lib/profileStorage"
 import { loadSession, clearSession } from "@/lib/session"
 import { supabase } from "@/lib/supabase"
 import StepProgress from "@/components/wizard/StepProgress"
@@ -14,21 +14,39 @@ import { ResultsDashboard } from "@/components/ResultsDashboard"
 import { Zap, LogOut, ShieldCheck } from "lucide-react"
 
 export default function Home() {
-  const { step, reset, setStep, setProfile, setSkills, profile } = useAnalysisStore()
+  const { step, reset, setStep, setProfile, setSkills, setResumeText, profile } = useAnalysisStore()
   const [hydrated, setHydrated] = useState(false)
   const isResults = step === "results"
+
+  // Route a restored user to the furthest step they've already completed so
+  // they never have to redo signup / resume upload on a return visit.
+  const resumeStepFor = (hasRole: boolean, hasResume: boolean) =>
+    hasRole && hasResume ? "job" : "resume"
 
   useEffect(() => {
     const init = async () => {
       const userId = loadSession()
       if (userId) {
-        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
-        if (profileData) {
-          setProfile({ name: profileData.name, email: profileData.email, phone: profileData.phone, currentRole: profileData.role, experience: profileData.experience, location: profileData.location, linkedin: profileData.linkedin })
-          if (profileData.skills?.length) setSkills(profileData.skills)
-          setStep("resume")
-          setHydrated(true)
-          return
+        try {
+          const { data: profileData } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
+          if (profileData) {
+            setProfile({
+              name: profileData.name, email: profileData.email, phone: profileData.phone,
+              currentRole: profileData.role, experience: profileData.experience,
+              location: profileData.location, linkedin: profileData.linkedin,
+              summary: profileData.summary ?? "", education: profileData.education ?? "",
+              keyAchievements: profileData.key_achievements ?? [],
+            })
+            if (profileData.skills?.length) setSkills(profileData.skills)
+            const cloudResume = profileData.resume_text || loadResumeText()
+            if (cloudResume) { setResumeText(cloudResume); saveResumeText(cloudResume) }
+            setStep(resumeStepFor(!!profileData.role, !!cloudResume))
+            setHydrated(true)
+            return
+          }
+        } catch {
+          // Cloud unreachable — fall through to the locally persisted copy below
+          // so a signed-in user is still restored offline.
         }
       }
       const saved = loadProfile()
@@ -36,7 +54,9 @@ export default function Home() {
         setProfile(saved)
         const savedSkills = loadSkills()
         if (savedSkills.length) setSkills(savedSkills)
-        setStep("resume")
+        const savedResume = loadResumeText()
+        if (savedResume) setResumeText(savedResume)
+        setStep(resumeStepFor(!!saved.currentRole, !!savedResume))
       }
       setHydrated(true)
     }
@@ -59,7 +79,7 @@ export default function Home() {
       {/* Nav */}
       <nav className="shrink-0 border-b border-white/[0.04] bg-[#030712]/50 backdrop-blur-md px-6 py-4 z-20 sticky top-0">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <button onClick={handleReset} className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
+          <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
               <Zap className="w-4 h-4 text-white" />
             </div>
@@ -67,7 +87,7 @@ export default function Home() {
               <span className="font-extrabold text-white tracking-tight text-base">ResumePilot</span>
               <span className="text-[9px] text-slate-500 font-semibold tracking-wider uppercase mt-0.5">AI Resume Co-Pilot</span>
             </div>
-          </button>
+          </div>
           <div className="flex items-center gap-4">
             {profile.name && step !== "signup" && (
               <div className="flex items-center gap-2.5 bg-slate-900/60 border border-white/[0.06] py-1 px-3 rounded-full">

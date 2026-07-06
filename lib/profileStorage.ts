@@ -20,8 +20,24 @@ export function loadProfile(): UserProfile | null {
 export function clearProfile() {
   try {
     localStorage.removeItem(KEY)
+    localStorage.removeItem("rp_skills")
+    localStorage.removeItem("rp_resume")
     sessionStorage.removeItem("rp_skills")
   } catch {}
+}
+
+export function saveResumeText(text: string) {
+  try {
+    localStorage.setItem("rp_resume", text)
+  } catch {}
+}
+
+export function loadResumeText(): string {
+  try {
+    return localStorage.getItem("rp_resume") ?? ""
+  } catch {
+    return ""
+  }
 }
 
 export function saveSkills(skills: string[]) {

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useAnalysisStore } from "@/store/useAnalysisStore"
-import { saveProfile } from "@/lib/profileStorage"
+import { saveProfile, saveResumeText } from "@/lib/profileStorage"
 import { saveSession } from "@/lib/session"
 import { supabase } from "@/lib/supabase"
 import { ArrowRight, User, Mail, Phone, Shield, CheckCircle2, Loader2 } from "lucide-react"
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 const PHONE_REGEX = /^\+?[0-9]{7,15}$/
 
 export function SignUpStep() {
-  const { profile, setProfile, setSkills, setStep } = useAnalysisStore()
+  const { profile, setProfile, setSkills, setStep, setResumeText } = useAnalysisStore()
   const [isSignUp, setIsSignUp] = useState(true)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
@@ -53,11 +53,24 @@ export function SignUpStep() {
       } else {
         if (!existing) { setAuthError("No account found with that phone number. Sign up instead."); setLoading(false); return }
         saveSession(existing.id)
-        const p = { name: existing.name, email: existing.email, phone: existing.phone, currentRole: existing.role, experience: existing.experience, location: existing.location, linkedin: existing.linkedin }
+        const p = {
+          name: existing.name, email: existing.email, phone: existing.phone,
+          currentRole: existing.role, experience: existing.experience,
+          location: existing.location, linkedin: existing.linkedin,
+          summary: existing.summary ?? "", education: existing.education ?? "",
+          keyAchievements: existing.key_achievements ?? [],
+        }
         setProfile(p)
         if (existing.skills?.length) setSkills(existing.skills)
+        const savedResume = existing.resume_text ?? ""
+        if (savedResume) { setResumeText(savedResume); saveResumeText(savedResume) }
         saveProfile({ ...profile, ...p })
-        if (existing.role) { setStep("resume"); return }
+        // Returning user: skip straight to the step they left off at instead of
+        // making them re-upload their resume every time.
+        if (existing.role && savedResume) { setStep("job"); return }
+        if (existing.role || savedResume) { setStep("resume"); return }
+        setStep("resume")
+        return
       }
       saveProfile({ ...profile, phone })
       setStep("resume")

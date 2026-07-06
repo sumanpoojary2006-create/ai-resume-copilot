@@ -22,6 +22,10 @@ export type Database = {
           location: string
           linkedin: string
           skills: string[]
+          resume_text: string
+          summary: string
+          education: string
+          key_achievements: string[]
           created_at: string
           updated_at: string
         }
